@@ -33,6 +33,7 @@ year_range = st.sidebar.slider("Select Year Range:", int(df['Year'].min()), int(
 
 df_filtered = df[(df['Name'].isin(regions)) & (df['Year'].between(year_range[0], year_range[1]))]
 
+
 # Tabs for different sections
 tab1, tab2, tab3 = st.tabs(["📈 Trends", "📊 Distributions", "📉 Relationships"])
 
@@ -42,6 +43,31 @@ with tab1:
     sns.lineplot(data=df_filtered, x='Year', y='HousePrice', hue='Name', ax=ax)
     plt.xticks(rotation=45)
     st.pyplot(fig)
+    
+    # Insights based on df_filtered
+    if df_filtered.empty:
+        st.sidebar.warning("No data for the selected filters.")
+    else:
+        # Average annual % change
+        avg_pct_change = df_filtered['HousePrice_Pct_Change'].mean()
+        max_year_row = df_filtered.loc[df_filtered['HousePrice_Pct_Change'].idxmax()]
+        min_year_row = df_filtered.loc[df_filtered['HousePrice_Pct_Change'].idxmin()]
+        std_dev_change = df_filtered['HousePrice_Pct_Change'].std()
+
+        # Display insights
+        st.markdown(f"**Average Annual % Change:** {avg_pct_change:.2f}%")
+        st.markdown(f"**Most Positive Change:** {max_year_row['Name']} in {int(max_year_row['Year'])} (+{max_year_row['HousePrice_Pct_Change']}%)")
+        st.markdown(f"**Most Negative Change:** {min_year_row['Name']} in {int(min_year_row['Year'])} ({min_year_row['HousePrice_Pct_Change']}%)")
+        st.markdown(f"**Volatility (Std Dev):** {std_dev_change:.2f}%")
+
+        # Optional: compare regions if more than one selected
+        if len(regions) > 1:
+            region_avg_changes = df_filtered.groupby('Name')['HousePrice_Pct_Change'].mean().sort_values(ascending=False)
+            best_region = region_avg_changes.idxmax()
+            worst_region = region_avg_changes.idxmin()
+            st.sidebar.markdown(f"**Region with Highest Avg Change:** {best_region} ({region_avg_changes.max():.2f}%)")
+            st.sidebar.markdown(f"**Region with Lowest Avg Change:** {worst_region} ({region_avg_changes.min():.2f}%)")
+
 
     st.subheader("% Change in House Prices by Region")
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -77,9 +103,28 @@ with tab3:
     sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
     st.pyplot(fig)
 
+
+# Compute percentage increase from first to last year in df_filtered for each region
+percent_increase_summary = []
+for region in df_filtered['Name'].unique():
+    region_data = df_filtered[df_filtered['Name'] == region].sort_values('Year')
+    start_price = region_data.iloc[0]['HousePrice']
+    end_price = region_data.iloc[-1]['HousePrice']
+    pct_change = ((end_price - start_price) / start_price) * 100 if start_price else np.nan
+    percent_increase_summary.append({
+        'Region': region,
+        'Start Year': region_data.iloc[0]['Year'],
+        'End Year': region_data.iloc[-1]['Year'],
+        'Start Price': start_price,
+        'End Price': end_price,
+        '% Change': round(pct_change, 2)
+    })
+
+pct_increase_df = pd.DataFrame(percent_increase_summary)
+pct_increase_df
+
 # Summary Statistics
 st.sidebar.header("📌 Summary Statistics")
 st.sidebar.metric("Average House Price", f"£{df_filtered['HousePrice'].mean():,.0f}")
 st.sidebar.metric("Average Earnings", f"£{df_filtered['GrossIncome'].mean():,.0f}")
-st.sidebar.metric("Mode House Price", f"£{df_filtered['HousePrice'].mode().iloc[0]:,.0f}")
-st.sidebar.metric("Std Dev House Price", f"£{df_filtered['HousePrice'].std():,.0f}")
+st.sidebar.metric("House Price % Change", f"{pct_increase_df['% Change'].mode().iloc[0]:,.1f}%")
