@@ -76,8 +76,14 @@ with tab1:
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
-    max_change_row = df[df['HousePrice_Pct_Change'] == df['HousePrice_Pct_Change'].max()]
-    st.markdown(f"**Highest % change:** {max_change_row.iloc[0]['Name']} in {int(max_change_row.iloc[0]['Year'])} with {max_change_row.iloc[0]['HousePrice_Pct_Change']}%")
+    # Insight
+    if not df_filtered.empty:
+        max_row = df_filtered.loc[df_filtered['HousePrice_Pct_Change'].idxmax()]
+        min_row = df_filtered.loc[df_filtered['HousePrice_Pct_Change'].idxmin()]
+        st.markdown(
+            f"📌 _Biggest spike: **{max_row['Name']}** in **{int(max_row['Year'])}** (+{max_row['HousePrice_Pct_Change']}%). "
+            f"Largest dip: **{min_row['Name']}** in **{int(min_row['Year'])}** ({min_row['HousePrice_Pct_Change']}%)._"
+        )
 
 with tab2:
     st.subheader("House Price Distribution by Region")
@@ -86,10 +92,22 @@ with tab2:
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
+    # Insight
+    if not df_filtered.empty:
+        widest_range = df_filtered.groupby('Name')['HousePrice'].agg(lambda x: x.max() - x.min()).idxmax()
+        st.markdown(f"📌 _{widest_range} has the widest range of house prices over time._")
+
     st.subheader("House Price Histogram")
     fig, ax = plt.subplots(figsize=(12, 5))
     sns.histplot(data=df_filtered, x='HousePrice', hue='Name', bins=30, multiple='stack', ax=ax)
     st.pyplot(fig)
+
+    # One-line insight
+    if not df_filtered.empty:
+        mode_region = df_filtered.groupby('Name')['HousePrice'].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else np.nan).idxmax()
+        st.markdown(f"📌 _Most common house price observed in: {mode_region}_")
+
+
 
 with tab3:
     st.subheader("House Prices vs Gross Income")
@@ -97,11 +115,21 @@ with tab3:
     sns.scatterplot(data=df_filtered, x='GrossIncome', y='HousePrice', hue='Name', ax=ax)
     st.pyplot(fig)
 
+    # Insight
+    if not df_filtered.empty:
+        correlation = df_filtered['HousePrice'].corr(df_filtered['GrossIncome'])
+        st.markdown(f"📌 _House prices and income have a correlation of **{correlation:.2f}**._")
+
     st.subheader("Correlation Matrix")
     fig, ax = plt.subplots()
     corr_matrix = df_filtered[['HousePrice', 'GrossIncome']].corr()
     sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
     st.pyplot(fig)
+
+    # Insight
+    if not df_filtered.empty:
+        st.markdown(f"📌 _Stronger positive correlation suggests higher income is generally linked to higher house prices._")
+
 
 
 # Compute percentage increase from first to last year in df_filtered for each region
